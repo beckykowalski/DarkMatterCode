@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import scipy as sp
 from scipy import special
 
-def LewinAndSmithExplicit(k0, k1, R0, r, E0, v0, vE, vEsc, vmin):
+def MaxwellianVelocityDistribution(k0, k1, R0, r, E0, v0, vE, vEsc, vmin):
     rateval = 0
 
     kFactor = k1 / k0
@@ -84,19 +84,6 @@ def MinVelocity(Er, E0, r, v0):
     
     vmin = v0 * np.sqrt(Er / (E0*r))
     return vmin
-def MinVelocity2(Mnuc, Er, Mchi):
-
-    # v0 should be cm/s
-    # E0 and Er should be in same units (say Joules)
-    mu = (Mnuc*Mchi)/(Mnuc + Mchi)
-    vmin = np.sqrt((Mnuc*Er)/(2*mu*mu))
-    return vmin
-def MinVelocity3(Er, Mchi, r):
-
-    # v0 should be cm/s
-    # E0 and Er should be in same units (say Joules)
-    vmin = np.sqrt((2*Er)/(r*Mchi))
-    return vmin
 
 def KineticFactor(Mchi, MA):
 
@@ -115,11 +102,12 @@ def AtomicMassInkg(NumberOfNucleons):
 
 def SIFormFactor(Er, MN, A):
     # units of q in fm
+    # Helms approximation 
 
     kgtoMeV = 1./(1.79*10.**-30.)
     JtoMeV = 1./(1.609*10.**-13.)
 
-    q = np.sqrt(2. * (MN*kgtoMeV) * (Er*JtoMeV))  # momentum transfer in MeV
+    q = np.sqrt(2. * (MN*kgtoMeV) * (Er*JtoMeV))  # momentum transfer in MeV/c
     s =  1. 
     R = 1.2 * A **(1./3.) 
     R1 = np.sqrt(R*R-5*s*s)
@@ -135,7 +123,7 @@ def SIFormFactor(Er, MN, A):
         FF = ((3.*j1)/qr) * np.exp(-1. * ((qs*qs)/2.))
     FF2 = FF*FF
     if FF2 > 1.:
-        print("ERROR: SPIND INDEPENDENT FORM FACTOR IS GREATER THAN 1. VALUE IS: "+str(FF2)+" AT RECOIL ENERGY "+str(Er)+" J (momentum: "+str(q)+" MeV/c)")
+        print("ERROR: SPIN INDEPENDENT FORM FACTOR IS GREATER THAN 1. VALUE IS: "+str(FF2)+" AT RECOIL ENERGY "+str(Er)+" J (momentum: "+str(q)+" MeV/c)")
     
     return FF2,q
     
@@ -209,7 +197,7 @@ for Mel in MElements:
         vm = MinVelocity(ErJ, E0, r, v0*kmtom)
         vels.append(vm)
         
-        R = LewinAndSmithExplicit(k0, k1, R0/sectoyear, E0/keVtoJ, r, v0*kmtom, vE*kmtom, vEsc*kmtom, vm)
+        R = MaxwellianVelocityDistribution(k0, k1, R0/sectoyear, E0/keVtoJ, r, v0*kmtom, vE*kmtom, vEsc*kmtom, vm)
         
         FF,q = SIFormFactor(ErJ, Mel[0], Mel[1])
         Rate.append(R*FF)

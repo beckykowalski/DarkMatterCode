@@ -196,7 +196,7 @@ for Mel in MElements:
     plt.yscale("log")
     plt.xlabel("Recoil Energy (keV)")
 #    plt.xlabel("q")
-    plt.ylabel("dR/dE (cpd/keV/kg)")
+    plt.ylabel("dR/dE (cp/yr/keV/kg)")
 #    plt.ylabel("$F^{2}$")
 #    plt.ylabel("Momentum (MeV/c)")
 #    plt.xlabel("qr (unitless)")

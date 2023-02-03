@@ -2,6 +2,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy as sp
 from scipy import special
+import DMConstants
+from DMConstants import *
+import pandas as pd
 
 def MaxwellianVelocityDistribution(k0, k1, R0, r, E0, v0, vE, vEsc, vmin):
     rateval = 0
@@ -107,15 +110,17 @@ def SIFormFactor(Er, MN, A):
     kgtoMeV = 1./(1.79*10.**-30.)
     JtoMeV = 1./(1.609*10.**-13.)
 
+    degtorad = np.pi/180.
+    
     q = np.sqrt(2. * (MN*kgtoMeV) * (Er*JtoMeV))  # momentum transfer in MeV/c
-    s =  1. 
-    R = 1.2 * A **(1./3.) 
+#    q = np.sqrt(2. * (MN*kgtoMeV) * (Er/keVtoJ))  # momentum transfer in MeV/c
+    s =  1. # units in fm 
+    R = 1.2 * A **(1./3.) # units in fm
     R1 = np.sqrt(R*R-5*s*s)
     hbar_c = 197.3 # MeV*fm
     qr = q*R1/hbar_c # unitless 
     qs = q*s/hbar_c
     j1 = (np.sin(qr))/(qr*qr) - (np.cos(qr))/(qr)
-
     FF = 0.
     if Er == 0:
         FF = 1.
@@ -124,39 +129,11 @@ def SIFormFactor(Er, MN, A):
     FF2 = FF*FF
     if FF2 > 1.:
         print("ERROR: SPIN INDEPENDENT FORM FACTOR IS GREATER THAN 1. VALUE IS: "+str(FF2)+" AT RECOIL ENERGY "+str(Er)+" J (momentum: "+str(q)+" MeV/c)")
+    q2 = q * (3.*10.**23.)
+    if Er == 1.602e-14:
+        print("For recoil energy 100 keV: qr = "+str(qr)+", and FF is "+str(FF2))
+    return FF2,qr
     
-    return FF2,q
-    
-##### define mathematical converstion factors
-
-# 1 GeV/c^2 = 1.7827 * 10^-27 kg
-GeVtokg = 1.7827 * 10.**(-27.)
-
-# 1 keV = 1.602 * 10^-16 J
-keVtoJ = 1.602 * 10.**(-16.)
-
-# 1 GeV = 1.602 * 10^-10 J
-GeVtoJ = 1.602 * 10.**(-10.)
-
-# 1 km = 1000 m
-kmtom = 1000.
-
-# 1km = 100000 cm
-kmtocm = 100000.
-
-# 1 square meter = 10000 square cm
-m2tocm2 = 10000.
-
-# second to day = 60 sec in min * 60 min in hour * 24 hours
-sectoday = 1./ (60.*60.*24.)
-sectoyear = 1./ (60.*60.*24.*365)
-
-##### define constants
-
-vE = 230. # km / s, Earth's nominal velocity 
-vEsc = 600. # km / s, Galactic Escape veloicty
-#v0 = 220. # km / s, Maxwellian DM velocity distribution
-v0 = 238. # km / s, Maxwellian DM velocity distribution
 k0 = (np.pi * v0*v0)**(3./2.)
 
 rho = 0.3 # GeV / (c^2 cm^3), DM local density
@@ -166,15 +143,22 @@ sig0 = 10.**(-45.) # cm^2, WIMP-Nucleon cross section
 MChi = 100. # GeV/c^2, mass of WIMP
 
 # list of list: each element is a list of [mass_in_kg, atomic_number]
-#MElements = [[2.18 * 10.**(-25.), 132]]
-MElements = [[AtomicMassInkg(132), 132]]
+#MElements = [[AtomicMassInkg(132), 132]]
+MElements = [[AtomicMassInkg(40), 40]]
 
 E0 = 0.5 * (MChi*GeVtokg) * (v0 * kmtom)*(v0 * kmtom)
 
 k1 = kConstants(k0, vEsc, v0) 
 
 # units in keV
-energies = np.linspace(.0001, 110, 10000)
+#energies = np.linspace(.0001, 110, 10000)
+energies = np.linspace(.0001, 100, 100)
+
+mariadata = pd.read_csv("/mnt/c/Users/bkow1/Downloads/ArgonEvR.csv")
+
+
+mariaE = mariadata["Energy"].values.tolist()
+mariaF = mariadata["DRDE"].values.tolist()
 
 for Mel in MElements:
 
@@ -185,7 +169,7 @@ for Mel in MElements:
     vels = []
 
     formfactorarray = []
-
+    momentumarray = []
     
     r = KineticFactor(MChi * GeVtokg, Mel[0])
     ecounter = 0
@@ -193,7 +177,8 @@ for Mel in MElements:
     for Er in energies:
         
         ErJ = Er*keVtoJ
-        
+        if Er == 100.:
+            print(ErJ)
         vm = MinVelocity(ErJ, E0, r, v0*kmtom)
         vels.append(vm)
         
@@ -202,14 +187,23 @@ for Mel in MElements:
         FF,q = SIFormFactor(ErJ, Mel[0], Mel[1])
         Rate.append(R*FF)
         formfactorarray.append(FF)
-
-#    plt.plot(energies, Rate)
-    plt.plot(energies, formfactorarray)
+        momentumarray.append(q)
+    plt.plot(energies, Rate, label="Becky")
+#    plt.plot(energies, formfactorarray, label="Becky")
+    plt.plot(mariaE, mariaF, label="Maria")
+#    plt.plot(energies, momentumarray)
+#    plt.plot(momentumarray, formfactorarray)
     plt.yscale("log")
     plt.xlabel("Recoil Energy (keV)")
-#    plt.ylabel("dR/dE (cpd/keV/kg)")
-    plt.ylabel("$F^{2}$")
-#    plt.ylabel("Momentum")
+#    plt.xlabel("q")
+    plt.ylabel("dR/dE (cpd/keV/kg)")
+#    plt.ylabel("$F^{2}$")
+#    plt.ylabel("Momentum (MeV/c)")
+#    plt.xlabel("qr (unitless)")
+ #   plt.ylim([.000000000000001, 1.])
+    plt.grid(True)
     plt.ylim([.0000001, 1.])
-    plt.savefig("FormFactorXenon132.png")
+    plt.legend(loc='best')
+#    plt.savefig("XenonFFvsQR.png")
+    plt.savefig("Argon_dRdEvE.png")
         

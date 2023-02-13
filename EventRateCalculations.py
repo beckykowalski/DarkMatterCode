@@ -30,6 +30,17 @@ def MaxwellianVelocityDistribution(k0, k1, R0, r, E0, v0, vE, vEsc, vmin):
 
     return (RateFactor * kFactor * rateval * normalization / 2. / y)
         
+def MaxwellianAnnualModulation(k0, k1, R0, r, E0, v0, vE, vEsc, vmin, t, vsun):
+
+
+    vFlux_R = vSolar_R
+    
+    
+    
+    Max = MaxwellianVelocityDistribution(k0, k1, R0, r, E0, v0, vEMax, vEsc, vmin)
+    Min = MaxwellianVelocityDistribution(k0, k1, R0, r, E0, v0, vEMin, vEsc, vmin)
+
+    Sm = (Max-Min) / 2. / v0
 
 
 def MinEventRate(A, rho, Mchi, sigA, v0):
@@ -102,7 +113,6 @@ def AtomicMassInkg(NumberOfNucleons):
     mN = 1.67 * 10.**(-27)
     return mN * NumberOfNucleons
 
-
 def SIFormFactor(Er, MN, A):
     # units of q in fm
     # Helms approximation 
@@ -130,10 +140,37 @@ def SIFormFactor(Er, MN, A):
     if FF2 > 1.:
         print("ERROR: SPIN INDEPENDENT FORM FACTOR IS GREATER THAN 1. VALUE IS: "+str(FF2)+" AT RECOIL ENERGY "+str(Er)+" J (momentum: "+str(q)+" MeV/c)")
     q2 = q * (3.*10.**23.)
+    qfm = np.sqrt(2.*MN*Er) * (5.344*10.**-19.) / .1973
     if Er == 1.602e-14:
         print("For recoil energy 100 keV: qr = "+str(qr)+", and FF is "+str(FF2))
-    return FF2,qr
+    return FF2,qfm
+
+
+def AnnualModulation(t, s0, sM, E, Rate):
+    # t is given in days of year
+
     
+    t0 = 152./365. # June 1
+    t1 = 81./365. # March 22 
+    omega = (2.*np.pi)/365.
+
+    OrbitalEarthV = [vEavg, vEavg, vEavg] # 3D vector velocity 
+    OrbitalEarthV[0] *= EpsilonSummerSolstice[0] * np.cos(omega * (t-t1)) + EpsilonSpringEquinox[0] * np.sin(omega * (t-t1))
+    OrbitalEarthV[1] *= EpsilonSummerSolstice[1] * np.cos(omega * (t-t1)) + EpsilonSpringEquinox[1] * np.sin(omega * (t-t1))
+    OrbitalEarthV[2] *= EpsilonSummerSolstice[2] * np.cos(omega * (t-t1)) + EpsilonSpringEquinox[2] * np.sin(omega * (t-t1))
+
+    vSun = [vSolar_R, vSolar_Theta + vE, vSolar_Phi] # vE = average velocity of sun moving through galaxy 
+
+    vObs = [OrbitalEarthV[0] + vSun[0], OrbitalEarthV[1] + vSun[1], OrbitalEarthV[2] + vSun[2]]
+
+    return vObs[1]
+#    print("x is "+str(vObs[0])+", y is "+str(vObs[1])+", z is "+str(vObs[2]))
+
+    
+#    print("x is "+str(OrbitalEarthV[0])+", y is "+str(OrbitalEarthV[1])+", z is "+str(OrbitalEarthV[2]))
+                                                                                   
+    
+
 k0 = (np.pi * v0*v0)**(3./2.)
 
 rho = 0.3 # GeV / (c^2 cm^3), DM local density
@@ -143,8 +180,8 @@ sig0 = 10.**(-45.) # cm^2, WIMP-Nucleon cross section
 MChi = 100. # GeV/c^2, mass of WIMP
 
 # list of list: each element is a list of [mass_in_kg, atomic_number]
-#MElements = [[AtomicMassInkg(132), 132]]
-MElements = [[AtomicMassInkg(40), 40]]
+MElements = [[AtomicMassInkg(132), 132]]
+#MElements = [[AtomicMassInkg(40), 40]]
 
 E0 = 0.5 * (MChi*GeVtokg) * (v0 * kmtom)*(v0 * kmtom)
 
@@ -152,7 +189,7 @@ k1 = kConstants(k0, vEsc, v0)
 
 # units in keV
 #energies = np.linspace(.0001, 110, 10000)
-energies = np.linspace(.0001, 100, 100)
+energies = np.linspace(.0001, 200, 10000)
 
 mariadata = pd.read_csv("/mnt/c/Users/bkow1/Downloads/ArgonEvR.csv")
 
@@ -160,6 +197,20 @@ mariadata = pd.read_csv("/mnt/c/Users/bkow1/Downloads/ArgonEvR.csv")
 mariaE = mariadata["Energy"].values.tolist()
 mariaF = mariadata["DRDE"].values.tolist()
 
+times = np.linspace(1, 365, 365)
+s0 = []
+for t in range(len(times)):
+
+    v = AnnualModulation(times[t], 1, 1, 1, 1)
+    s0.append(v)
+
+plt.plot(times, s0)
+plt.xlabel("time (days)")
+plt.ylabel("Rotational Observational Speed (km/s)")
+
+plt.savefig("RotVvsT.png")
+
+'''
 for Mel in MElements:
 
     sigA = AtomicCross(Mel[0], MChi*GeVtokg, Mel[1], sig0)
@@ -188,22 +239,22 @@ for Mel in MElements:
         Rate.append(R*FF)
         formfactorarray.append(FF)
         momentumarray.append(q)
-    plt.plot(energies, Rate, label="Becky")
-#    plt.plot(energies, formfactorarray, label="Becky")
-    plt.plot(mariaE, mariaF, label="Maria")
+ #   plt.plot(energies, Rate, label="Becky")
+    plt.plot(energies, formfactorarray, label="Becky")
+#    plt.plot(mariaE, mariaF, label="Maria")
 #    plt.plot(energies, momentumarray)
 #    plt.plot(momentumarray, formfactorarray)
     plt.yscale("log")
     plt.xlabel("Recoil Energy (keV)")
 #    plt.xlabel("q")
-    plt.ylabel("dR/dE (cp/yr/keV/kg)")
-#    plt.ylabel("$F^{2}$")
+#    plt.ylabel("dR/dE (cp/yr/keV/kg)")
+    plt.ylabel("$F^{2}$")
 #    plt.ylabel("Momentum (MeV/c)")
 #    plt.xlabel("qr (unitless)")
  #   plt.ylim([.000000000000001, 1.])
     plt.grid(True)
-    plt.ylim([.0000001, 1.])
-    plt.legend(loc='best')
-#    plt.savefig("XenonFFvsQR.png")
-    plt.savefig("Argon_dRdEvE.png")
+#    plt.ylim([.0000001, 1.])
+    plt.savefig("XenonFFvsE.png")
+#    plt.savefig("Argon_dRdEvE.png")
         
+'''

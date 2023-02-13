@@ -106,6 +106,9 @@ vEarth_Phi_cos = 0.0042
 timeometa = 0.0172 # units: days^-1
 deltaT = 0.218 # unit years: should be March 22, 2018. Can make unit of days
 
+EpsilonSpringEquinox = [-0.0505, 0.4944, -0.8677] # March 21
+EpsilonSummerSolstice = [0.9441, 0.1088, 0.0042] # June 21
+
 # Solar peculiar velocities, taken from https://arxiv.org/pdf/2105.00599.pdf
 ## units in km/s
 

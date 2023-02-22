@@ -97,12 +97,12 @@ rho = 0.3 # GeV / (c^2 cm^3), DM local density
 
 # Earth's orbit vectors, taken from https://arxiv.org/pdf/2105.00599.pdf
 
-vEarth_R_sin = -0.0505
-vEarth_Theta_sin = 0.4944
-vEarth_Phi_sin = -0.8677
-vEarth_R_cos = 0.9941
-vEarth_Theta_cos = 0.1088
-vEarth_Phi_cos = 0.0042
+epsilon1_R = -0.0505
+epsilon1_Theta = 0.4944
+epsilon1_Phi = -0.8677
+epsilon2_R = -0.9941
+epsilon2_Theta = -0.1088
+epsilon2_Phi = -0.0042
 timeometa = 0.0172 # units: days^-1
 deltaT = 0.218 # unit years: should be March 22, 2018. Can make unit of days
 

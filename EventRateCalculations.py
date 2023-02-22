@@ -5,30 +5,6 @@ from scipy import special
 import DMConstants
 from DMConstants import *
 import pandas as pd
-
-def MaxwellianVelocityDistribution(k0, k1, R0, r, E0, v0, vE, vEsc, vmin):
-    rateval = 0
-
-    kFactor = k1 / k0
-    RateFactor = R0 / (E0 * r)
-
-    x = vmin/v0
-    y = vE/v0 # when time dependence is introduced, this becomes : (vsun+vearth(t))/v0
-    z = vEsc/v0
-
-    exponential = np.exp( -(z*z) )
-
-    normalization = 1. / (sp.special.erf(z) - 2./np.sqrt(np.pi)*z*exponential)
-
-    if(x>=0. and x <= z-y):
-        rateval = sp.special.erf(x+y) - sp.special.erf(x-y) - (4. / np.sqrt(np.pi) * y * exponential)
-    if (x >z-y and x<= z+y):
-        rateval =  sp.special.erf(z) - sp.special.erf(x-y) - (2. / np.sqrt(np.pi)*(z + y - x) * exponential)
-    if (x > x+y):
-        rateval = 0.
-
-
-    return (RateFactor * kFactor * rateval * normalization / 2. / y)
         
 def MaxwellianAnnualModulation(k0, k1, R0, r, E0, v0, vE, vEsc, vmin, t, vsun):
 

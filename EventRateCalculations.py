@@ -8,6 +8,9 @@ import MaxwellianVelocityDist
 from MaxwellianVelocityDist import *
 import pandas as pd
 from scipy.special import logsumexp
+import parseDataFunc
+from parseDataFunc import *
+
 
 def MaxwellianVelocityDistribution(k0, k1, R0, r, E0, v0, vE, vEsc, vmin):
     rateval = 0
@@ -77,7 +80,8 @@ def GetTimeDependentEarthVelocity(vE, t, t0, omega):
     b = np.sqrt(w1*w1 + w2*w2) 
     ####    vOb = vsun + b*vE*np.cos(omega * (t - t0))
     # this commponent will add with vy in Maxwellian Velocity distribution 
-    vOb = b*vE*np.cos(omega * (t - t0))
+#    vOb = b*vE*np.cos(omega * (t - t0))
+    vOb = b*vE*np.cos(0.415951)
     return(vOb)
 '''
     # arbitrary DM Constant date set. Begin considering period begining March 22st 2018
@@ -213,75 +217,69 @@ def SIFormFactor(Er, MN, A):
     return FF2,qfm
 
 
-k0 = (np.pi * v0*v0)**(3./2.)
+if __name__ == "__main__":
 
-rho = 0.3 # GeV / (c^2 cm^3), DM local density
+    k0 = (np.pi * v0*v0)**(3./2.)
 
-
-sig0 = 10.**(-45.) # cm^2, WIMP-Nucleon cross section 
-MChi = 100. # GeV/c^2, mass of WIMP
-
-# list of list: each element is a list of [mass_in_kg, atomic_number]
-MElements = [[AtomicMassInkg(132), 132]]
-#MElements = [[AtomicMassInkg(40), 40]]
-
-E0 = 0.5 * (MChi*GeVtokg) * (v0 * kmtom)*(v0 * kmtom)
-
-k1 = kConstants(k0, vEsc, v0) 
-
-# units in keV
-#energies = np.linspace(.0001, 110, 10000)
-energies = np.linspace(.0001, 100, 80)
-
-mariadata = pd.read_csv("MariaXenon.csv")
-mariaE = mariadata["Xval"].values.tolist()
-mariaR = mariadata["Yval"].values.tolist()
+    rho = 0.3 # GeV / (c^2 cm^3), DM local density
 
 
-for Mel in MElements:
+    sig0 = 10.**(-45.) # cm^2, WIMP-Nucleon cross section 
+    MChi = 100. # GeV/c^2, mass of WIMP
+    
+    # list of list: each element is a list of [mass_in_kg, atomic_number]
+    MElements = [[AtomicMassInkg(132), 132]]
+    #MElements = [[AtomicMassInkg(40), 40]]
+    
+    E0 = 0.5 * (MChi*GeVtokg) * (v0 * kmtom)*(v0 * kmtom)
+    
+    k1 = kConstants(k0, vEsc, v0) 
+    
+    # units in keV
+    #energies = np.linspace(.0001, 110, 10000)
+    energies = np.linspace(.0001, 100, 1000)
 
-    # create array to plot the event rate (y axis)
-    Rate = []
-
-    # initialize not time/energy dependent variables for event rate 
-    sigA = AtomicCross(Mel[0], MChi*GeVtokg, Mel[1], sig0)
-    R0 = MinEventRate(Mel[1], rho, MChi, sigA, v0*kmtocm) 
-    r = KineticFactor(MChi * GeVtokg, Mel[0])
-    t_initial = 0.
-#    omega = 1./365.
-    omega = timeomega
-
-    times = []
-    modulatingvel = []
-    # sum event rate for every day in a year  
-    for Er in energies:
-        Er_tbin = 0.
-        ErJ = Er*keVtoJ
-        FF,q = SIFormFactor(ErJ, Mel[0], Mel[1])
-        vm = MinVelocity(ErJ, E0, r, v0*kmtom)
-        for t in range(366): 
-#        times.append(float(t))
-
+    #mariadata = pd.read_csv("MariaXenon.csv")
+    #mariaE = mariadata["Xval"].values.tolist()
+    #mariaR = mariadata["Yval"].values.tolist()
+    
+    mariaE, mariaR = PARSEMARIADATA("testing_mariadata/rate100GeV_SI1e-8.dat")
+    for Mel in MElements:
+        print("Mel size is "+str(len(MElements)))
+        # create array to plot the event rate (y axis)
+        Rate = []
+        
+        # initialize not time/energy dependent variables for event rate 
+        sigA = AtomicCross(Mel[0], MChi*GeVtokg, Mel[1], sig0)
+        R0 = MinEventRate(Mel[1], rho, MChi, sigA, v0*kmtocm) 
+        r = KineticFactor(MChi * GeVtokg, Mel[0])
+        t_initial = 0.
+        #    omega = 1./365.
+        omega = timeomega
+        t = 0.
+        times = []
+        modulatingvel = []
+        # sum event rate for every day in a year  
+        for Er in energies:
+            Er_tbin = 0.
+            ErJ = Er*keVtoJ
+            FF,q = SIFormFactor(ErJ, Mel[0], Mel[1])
+            vm = MinVelocity(ErJ, E0, r, v0*kmtom)
+            
             R,vt = MaxwellianVelocityDistributionTimeDependence(k0, k1, R0/sectoday, r, E0/keVtoJ, v0*kmtom, vE*kmtom, vEsc*kmtom, vm, t, t_initial, omega, vEavg)
 
-#            if Er == energies[-1]:
-#                modulatingvel.append(vt)
-            #        R = MaxwellianVelocityDistribution(k0, k1, R0/sectoyear, r, E0/keVtoJ, v0*kmtom, vE*kmtom, vEsc*kmtom, vm)
-            #        print(R)
-#            Rate.append(R*FF)
-            Er_tbin += R*FF
-        Rate.append(Er_tbin)
+
+            Rate.append(R*FF)
 
             
-    plt.plot(energies, Rate)
-#    plt.plot(times, modulatingvel)
+    plt.plot(energies, Rate, label="Becky's")
+    plt.plot(mariaE, mariaR, label="Maria's")
     plt.yscale("log")
     plt.xlabel("Recoil Energy (keV)")
-#    plt.xlabel("Time (days)")
-    plt.ylabel("dR/dE (cp/yr/keV/kg)")
-#    plt.ylabel("Velocity (km/s)")
+    plt.ylabel("dR/dE (cp/day/keV/kg)")
     plt.ylim([.0000001, .1])
     plt.grid(True)
-    plt.savefig("EventRate_vs_energy_xenon_timedependent.png")
+    plt.legend(loc="best")
+    plt.savefig("EventRate_vs_energy_xenon_timedependent_dayUnits.png")
         
 

@@ -4,20 +4,127 @@ import scipy as sp
 from scipy import special
 import DMConstants
 from DMConstants import *
+import MaxwellianVelocityDist
+from MaxwellianVelocityDist import *
 import pandas as pd
+from scipy.special import logsumexp
+import parseDataFunc
+from parseDataFunc import *
+
+
+def MaxwellianVelocityDistribution(k0, k1, R0, r, E0, v0, vE, vEsc, vmin):
+    rateval = 0
+    
+    kFactor = k1 / k0
+    RateFactor = R0 / (E0 * r)
+    
+    x = vmin/v0
+    y = vE/v0
+    z = vEsc/v0
+    
+#    if mod == False:
+#        y = vE/v0 # when time dependence is introduced, this becomes : (vsun+vearth(t))/v0
+#    if mod == True:
+#        y = vmod
+
+    exponential = np.exp( -(z*z) )
         
-def MaxwellianAnnualModulation(k0, k1, R0, r, E0, v0, vE, vEsc, vmin, t, vsun):
+    normalization = 1. / (sp.special.erf(z) - ((2.*z)/(np.sqrt(np.pi)))*exponential)
+        
+    if(x>=0. and x <= z-y):
+        rateval = sp.special.erf(x+y) - sp.special.erf(x-y) - ((4. / np.sqrt(np.pi)) * y * exponential)
+    if (x >z-y and x<= z+y):
+        rateval =  sp.special.erf(z) - sp.special.erf(x-y) - ((2. / np.sqrt(np.pi))*(z + y - x) * exponential)
+    if (x > x+y):
+        rateval = 0.
 
+        
+    return (RateFactor * kFactor * rateval * normalization / y), rateval
 
-    vFlux_R = vSolar_R
+#   return (RateFactor * kFactor * rateval * normalization / 2. / y)
+                                                                                                                    
+def MaxwellianVelocityDistributionTimeDependence(k0, k1, R0, r, E0, v0, vEnom, vEsc, vmin, t, t0, omega, vEavg):
+    rateval = 0
     
+    kFactor = k1 / k0
+    RateFactor = R0 / (E0 * r)
+
+#    vt = GetTimeDependentEarthVelocity(vEavg, t, t0, omega)
+    vt = GetTimeDependentEarthVelocity(v0, t, t0, omega)
+
+    x = vmin/v0
+    # add time dependent velocity to y from rotation of earth (averaged at 29.8 km/s +/- sinusoidal component derived from sun's peculiar velocity at differnet 
+    ## times of the year
+    y = (vE + vt)/v0 
+    z = vEsc/v0 
+   
+    exponential = np.exp( -(z*z) )
+        
+    normalization = 1. / (sp.special.erf(z) - (2./np.sqrt(np.pi))*z*exponential)
+        
+    if(x>=0. and x <= z-y):
+        rateval = sp.special.erf(x+y) - sp.special.erf(x-y) - ((4. / np.sqrt(np.pi)) * y * exponential)
+    if (x >z-y and x<= z+y):
+        rateval =  sp.special.erf(z) - sp.special.erf(x-y) - ((2. / np.sqrt(np.pi))*(z + y - x) * exponential)
+    if (x > x+y):
+        rateval = 0.
+        
+        
+    return (RateFactor * kFactor * rateval * normalization / 2. / y), vt, rateval/normalization
+                                                                                                                    
+
+def GetTimeDependentEarthVelocity(vE, t, t0, omega):
+
+    ### taken as equation 27 in https://journals.aps.org/rmp/pdf/10.1103/RevModPhys.85.1561 (Katherine Freese Colloqium on Annual Modulation)
+
     
+    w1 = (EpsilonSpringEquinox[0]*vSolar_R + EpsilonSpringEquinox[1]*vSolar_Theta + EpsilonSpringEquinox[2]*vSolar_Phi)
+    w2 = (EpsilonSummerSolstice[0]*vSolar_R + EpsilonSummerSolstice[1]*vSolar_Theta + EpsilonSummerSolstice[2]*vSolar_Phi)
+    b = np.sqrt(w1*w1 + w2*w2) 
+    ####    vOb = vsun + b*vE*np.cos(omega * (t - t0))
+    # this commponent will add with vy in Maxwellian Velocity distribution 
+#    vOb = b*vE*np.cos(omega * (t - t0))
+#    vOb = b*vE*np.cos(0.415951)
+    vOb = vE * (1.05 + 0.7 * np.cos((2*np.pi * 4.15951)))
+#    vOb = b*vE*np.cos(0.415951)
+    return(vOb)
+'''
+    # arbitrary DM Constant date set. Begin considering period begining March 22st 2018
+    # this means t should incriment in units of DAYS
+    omega = 0.0172 # units is 1/days
+
+    # Set velocity due to revolution of Earth around Sun as function of time
+    vRotationOfEarthAroundSun = []
+    vRotationOfEarthAroundSun[0] = (0.9941 * np.cos(omega * t)) - (0.0504 * np.sin(omega * t))
+    vRotationOfEarthAroundSun[1] = (0.1088 * np.cos(omega * t)) + (0.4946 * np.sin(omega * t))
+    vRotationOfEarthAroundSun[2] = (0.0042 * np.cos(omega * t)) - (0.8677 * np.sin(omega * t))
+
+    # setting peculiar velocity of sun relative to position in Milky Way
+    SunPeculiar = [vSolar_R, vSolar_Theta, vSolar_Phi]
+
+    # finding relative velocity (as function of time) for sun to Earth, with Sun's galactic position into account. 
+    vFluxToSun = []
+    vFluxToSun[0] = SunPeculiar[0] - vRotationOfEarthAroundSun[0]
+    vFluxToSun[1] = SunPeculiar[1] + v0 - vRotationOfEarthAroundSun[1]
+    vFluxToSun[2] = SunPeculiar[2] - vRotationOfEarthAroundSun[2] 
+
+    # summar solstice: expected max of velocity flux. Spring equinox: expected midpoint of velocity flux. Getting average
+    ## Earth velocity for modulating/static DM event rate normalzed to a max and mean value of velocity
+    w1 = vEavg * (EpsilonSpringEquinox[0]*vFluxToSun[0] + EpsilonSpringEquinox[1]*vFluxToSun[1] + EpsilonSpringEquinox[2]*vFluxToSun[2])
+    w2 = vEavg * (EpsilonSummerSolstice[0]*vFluxToSun[0] + EpsilonSummerSolstice[1]*vFluxToSun[1] + EpsilonSummerSolstice[2]*vFluxToSun[2])
+
+    wT2 = vFluxToSun[0]*vFluxToSun[0] + vFluxToSun[1]*vFluxToSun[1] + vFluxToSun[2]*vFluxToSun[2]
+
+    ExpectedModulationAmp = np.sqrt(w1*w1 + w2*w2)
+    
+    vEMax = np.sqrt(wT2 + 2*ExpectedModulationAmp) / vDis
+
     
     Max = MaxwellianVelocityDistribution(k0, k1, R0, r, E0, v0, vEMax, vEsc, vmin)
     Min = MaxwellianVelocityDistribution(k0, k1, R0, r, E0, v0, vEMin, vEsc, vmin)
 
     Sm = (Max-Min) / 2. / v0
-
+'''
 
 def MinEventRate(A, rho, Mchi, sigA, v0):
 
@@ -32,13 +139,6 @@ def MinEventRate(A, rho, Mchi, sigA, v0):
 
     Rate = numericalConst * NumberCount * MassNormalizedDensity * sigA * v0
 
-    txt.write("Avagadros number is "+str(Na)+"\n")
-    txt.write("atomic number of xe is "+str(A)+"\n")
-    txt.write("dm density is "+str(rho)+"\n")
-    txt.write("dm mass is "+str(Mchi)+"\n")
-    txt.write("atomic cross section is "+str(sigA)+"\n")
-    txt.write("min velocity is "+str(v0)+"\n")
-    txt.close()
     return Rate
 
 def kConstants(k0, vesc, v0):
@@ -48,7 +148,7 @@ def kConstants(k0, vesc, v0):
     velFunc = vesc / v0
     exponential = np.exp( - (vesc*vesc)/(v0*v0) )
 
-    k1 = k0 * (erfFunc - numericalConst * velFunc * exponential)
+    k1 = k0 * (erfFunc - (numericalConst * velFunc * exponential))
 
     return k1
 
@@ -68,11 +168,13 @@ def AtomicCross(MA, Mchi, A, sig0):
     
 #### confirmed all three calculations equal the same thing when all units are in joules     
 def MinVelocity(Er, E0, r, v0):
+#def MinVelocity(mN, Er, mu):
 
     # v0 should be cm/s
     # E0 and Er should be in same units (say Joules)
     
     vmin = v0 * np.sqrt(Er / (E0*r))
+#    vmin = np.sqrt((mN*Er)/(2*mu*mu))
     return vmin
 
 def KineticFactor(Mchi, MA):
@@ -93,7 +195,8 @@ def SIFormFactor(Er, MN, A):
     # units of q in fm
     # Helms approximation 
 
-    kgtoMeV = 1./(1.79*10.**-30.)
+    #kgtoMeV = 1./(1.79*10.**-30.)
+    kgtoMeV = 5.6*10.**(29.)
     JtoMeV = 1./(1.609*10.**-13.)
 
     degtorad = np.pi/180.
@@ -102,7 +205,7 @@ def SIFormFactor(Er, MN, A):
 #    q = np.sqrt(2. * (MN*kgtoMeV) * (Er/keVtoJ))  # momentum transfer in MeV/c
     s =  1. # units in fm 
     R = 1.2 * A **(1./3.) # units in fm
-    R1 = np.sqrt(R*R-5*s*s)
+    R1 = np.sqrt((R*R)-(5*s*s))
     hbar_c = 197.3 # MeV*fm
     qr = q*R1/hbar_c # unitless 
     qs = q*s/hbar_c
@@ -111,7 +214,9 @@ def SIFormFactor(Er, MN, A):
     if Er == 0:
         FF = 1.
     else:
-        FF = ((3.*j1)/qr) * np.exp(-1. * ((qs*qs)/2.))
+        # had factor of /2 in exponent from Maria's code. Her comment notes a factor of 2 missing. If I remove, better F^2 agreement
+#        FF = ((3.*j1)/qr) * np.exp(-1. * ((qs*qs)/2.))
+        FF = ((3.*j1)/qr) * np.exp(-1. * ((qs*qs)))
     FF2 = FF*FF
     if FF2 > 1.:
         print("ERROR: SPIN INDEPENDENT FORM FACTOR IS GREATER THAN 1. VALUE IS: "+str(FF2)+" AT RECOIL ENERGY "+str(Er)+" J (momentum: "+str(q)+" MeV/c)")
@@ -122,115 +227,83 @@ def SIFormFactor(Er, MN, A):
     return FF2,qfm
 
 
-def AnnualModulation(t, s0, sM, E, Rate):
-    # t is given in days of year
+if __name__ == "__main__":
 
+    k0 = (np.pi * v0*v0)**(3./2.)
+
+    rho = 0.3 # GeV / (c^2 cm^3), DM local density
+
+
+    sig0 = 10.**(-45.) # cm^2, WIMP-Nucleon cross section 
+    MChi = 100. # GeV/c^2, mass of WIMP
     
-    t0 = 152./365. # June 1
-    t1 = 81./365. # March 22 
-    omega = (2.*np.pi)/365.
-
-    OrbitalEarthV = [vEavg, vEavg, vEavg] # 3D vector velocity 
-    OrbitalEarthV[0] *= EpsilonSummerSolstice[0] * np.cos(omega * (t-t1)) + EpsilonSpringEquinox[0] * np.sin(omega * (t-t1))
-    OrbitalEarthV[1] *= EpsilonSummerSolstice[1] * np.cos(omega * (t-t1)) + EpsilonSpringEquinox[1] * np.sin(omega * (t-t1))
-    OrbitalEarthV[2] *= EpsilonSummerSolstice[2] * np.cos(omega * (t-t1)) + EpsilonSpringEquinox[2] * np.sin(omega * (t-t1))
-
-    vSun = [vSolar_R, vSolar_Theta + vE, vSolar_Phi] # vE = average velocity of sun moving through galaxy 
-
-    vObs = [OrbitalEarthV[0] + vSun[0], OrbitalEarthV[1] + vSun[1], OrbitalEarthV[2] + vSun[2]]
-
-    return vObs[1]
-#    print("x is "+str(vObs[0])+", y is "+str(vObs[1])+", z is "+str(vObs[2]))
-
+    # list of list: each element is a list of [mass_in_kg, atomic_number]
+    MElements = [[AtomicMassInkg(132), 132]]
+    #MElements = [[AtomicMassInkg(40), 40]]
     
-#    print("x is "+str(OrbitalEarthV[0])+", y is "+str(OrbitalEarthV[1])+", z is "+str(OrbitalEarthV[2]))
-                                                                                   
+    E0 = 0.5 * (MChi*GeVtokg) * (v0 * kmtom)*(v0 * kmtom)
     
-
-k0 = (np.pi * v0*v0)**(3./2.)
-
-rho = 0.3 # GeV / (c^2 cm^3), DM local density
-
-
-sig0 = 10.**(-45.) # cm^2, WIMP-Nucleon cross section 
-MChi = 100. # GeV/c^2, mass of WIMP
-
-# list of list: each element is a list of [mass_in_kg, atomic_number]
-MElements = [[AtomicMassInkg(132), 132]]
-#MElements = [[AtomicMassInkg(40), 40]]
-
-E0 = 0.5 * (MChi*GeVtokg) * (v0 * kmtom)*(v0 * kmtom)
-
-k1 = kConstants(k0, vEsc, v0) 
-
-# units in keV
-#energies = np.linspace(.0001, 110, 10000)
-energies = np.linspace(.0001, 200, 10000)
-
-mariadata = pd.read_csv("/mnt/c/Users/bkow1/Downloads/ArgonEvR.csv")
-
-
-mariaE = mariadata["Energy"].values.tolist()
-mariaF = mariadata["DRDE"].values.tolist()
-
-times = np.linspace(1, 365, 365)
-s0 = []
-for t in range(len(times)):
-
-    v = AnnualModulation(times[t], 1, 1, 1, 1)
-    s0.append(v)
-
-plt.plot(times, s0)
-plt.xlabel("time (days)")
-plt.ylabel("Rotational Observational Speed (km/s)")
-
-plt.savefig("RotVvsT.png")
-
-'''
-for Mel in MElements:
-
-    sigA = AtomicCross(Mel[0], MChi*GeVtokg, Mel[1], sig0)
-    R0 = MinEventRate(Mel[1], rho, MChi, sigA, v0*kmtocm) 
+    k1 = kConstants(k0, vEsc, v0) 
     
-    Rate = []
-    vels = []
+    # units in keV
+    #energies = np.linspace(.0001, 110, 10000)
+    energies = np.linspace(0, 100, 1000)
 
-    formfactorarray = []
-    momentumarray = []
+    #mariadata = pd.read_csv("MariaXenon.csv")
+    #mariaE = mariadata["Xval"].values.tolist()
+    #mariaR = mariadata["Yval"].values.tolist()
     
-    r = KineticFactor(MChi * GeVtokg, Mel[0])
-    ecounter = 0
-    
-    for Er in energies:
-        
-        ErJ = Er*keVtoJ
-        if Er == 100.:
-            print(ErJ)
-        vm = MinVelocity(ErJ, E0, r, v0*kmtom)
-        vels.append(vm)
-        
-        R = MaxwellianVelocityDistribution(k0, k1, R0/sectoyear, E0/keVtoJ, r, v0*kmtom, vE*kmtom, vEsc*kmtom, vm)
-        
-        FF,q = SIFormFactor(ErJ, Mel[0], Mel[1])
-        Rate.append(R*FF)
-        formfactorarray.append(FF)
-        momentumarray.append(q)
- #   plt.plot(energies, Rate, label="Becky")
-    plt.plot(energies, formfactorarray, label="Becky")
-#    plt.plot(mariaE, mariaF, label="Maria")
-#    plt.plot(energies, momentumarray)
-#    plt.plot(momentumarray, formfactorarray)
+    mariaE, mariaR, mariaFF = PARSEMARIADATA("testing_mariadata/rate100GeV_SI1e-9.dat")
+    for Mel in MElements:
+        print("Mel size is "+str(len(MElements)))
+
+        mu = 1/((1./Mel[0])+(1./MChi))
+        # create array to plot the event rate (y axis)
+        Rate = []
+        FFarr = []
+        erfFunc = []
+        # initialize not time/energy dependent variables for event rate 
+        sigA = AtomicCross(Mel[0], MChi*GeVtokg, Mel[1], sig0)
+        R0 = MinEventRate(Mel[1], rho, MChi, sigA, v0*kmtocm) 
+        r = KineticFactor(MChi * GeVtokg, Mel[0])
+        t_initial = 0.
+        #    omega = 1./365.
+        omega = timeomega
+        t = 0.
+        times = []
+        modulatingvel = []
+        # sum event rate for every day in a year  
+        for Er in energies:
+            Er_tbin = 0.
+            ErJ = Er*keVtoJ
+#            FF,q = SIFormFactor(ErJ, Mel[0], Mel[1])
+            FF,q = SIFormFactor(ErJ, Mel[0], Mel[1])
+            vm = MinVelocity(ErJ, E0, r, v0*kmtom)
+#            vm = MinVelocity(Mel[0], ErJ, mu)
+            
+            R,vt,erf = MaxwellianVelocityDistributionTimeDependence(k0, k1, R0/sectoday, r, E0/keVtoJ, v0*kmtom, vE*kmtom, vEsc*kmtom, vm, t, t_initial, omega, vEavg)
+
+            erfFunc.append(erf)
+            FFarr.append(FF)
+            Rate.append(R*FF)
+
+            
+#    plt.plot(energies, Rate, label="Becky's")
+#    plt.plot(mariaE, mariaR, label="Maria's")
+#    plt.plot(energies, FFarr, label="Becky's")
+#    plt.plot(mariaE, mariaFF, label="Maria's")
+    plt.plot(energies, erfFunc)
     plt.yscale("log")
     plt.xlabel("Recoil Energy (keV)")
-#    plt.xlabel("q")
-#    plt.ylabel("dR/dE (cp/yr/keV/kg)")
-    plt.ylabel("$F^{2}$")
-#    plt.ylabel("Momentum (MeV/c)")
-#    plt.xlabel("qr (unitless)")
- #   plt.ylim([.000000000000001, 1.])
+#    plt.ylabel("dR/dE (cp/day/keV/kg)")
+    plt.ylabel("unitless")
+#    plt.ylabel("SI Form Factor")
+#    plt.ylim([.0000001, .1])
     plt.grid(True)
-#    plt.ylim([.0000001, 1.])
-    plt.savefig("XenonFFvsE.png")
-#    plt.savefig("Argon_dRdEvE.png")
+    plt.legend(loc="best")
+#    plt.savefig("EventRate_vs_energy_xenon_timedependent_dayUnits.png")
+#    plt.savefig("EventRate_vs_energy_xenon_timedependent_newFF_CorrectXsection_trial2.png")
+    plt.savefig("ErrorFunc.png")
+#    plt.savefig("FormFactor.png")
         
-'''
+

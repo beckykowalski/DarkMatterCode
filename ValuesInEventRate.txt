@@ -1,6 +1,0 @@
-Avagadros number is 6.02e+26
-atomic number of xe is 40
-dm density is 0.3
-dm mass is 100.0
-atomic cross section is 1.3801144277978488e-39
-min velocity is 23800000.0

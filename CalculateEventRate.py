@@ -7,8 +7,12 @@ import IsothermalHaloVelocities
 from IsothermalHaloVelocities import *
 import SpinIndependentFormFactor
 from SpinIndependentFormFactor import *
+import ApplyDetectorResolution
+from ApplyDetectorResolution import *
+from scipy import ndimage as nd
 
-def HaloModelEventRate(k0, rho, MChi, sig0, MNElements, V0, Vesc, VEavg, Estart, Estop, ENumEntries):
+
+def HaloModelEventRate(k0, rho, MChi, sig0, MNElements, V0, Vesc, VEavg, Estart, Estop, ENumEntries, resFWHM):
 
     # returns in order:
     # 1: list for energy 
@@ -55,15 +59,13 @@ def HaloModelEventRate(k0, rho, MChi, sig0, MNElements, V0, Vesc, VEavg, Estart,
             FF = SIFormFactor(Er, Mel[1])
 
             vm = MinVelocity(Er, E0, r, V0*kmtom)
-
             RMax,erf,xMax = MaxwellianVelocityDistribution(k0, k1, R0/sectoday, r, E0/keVtoJ, V0*kmtom, Ymax, Vesc*kmtom, vm)
             RMin,erf,xMin = MaxwellianVelocityDistribution(k0, k1, R0/sectoday, r, E0/keVtoJ, V0*kmtom, Ymin, Vesc*kmtom, vm)
             RMean,erf,xMean = MaxwellianVelocityDistribution(k0, k1, R0/sectoday, r, E0/keVtoJ, V0*kmtom, Ymean, Vesc*kmtom, vm)
 
             Sm = (RMax-RMin)/2. * Mel[2] 
-            S0 = (RMax+RMin)/2. * Mel[2] 
+            S0 = (RMax+RMin)/2. * Mel[2]
             R = RMean * Mel[2]
-            combinedval = S0 + Sm*np.cos(0.415951)
             
             erfFunc.append(erf)
             FFarr.append(FF)
@@ -73,6 +75,18 @@ def HaloModelEventRate(k0, rho, MChi, sig0, MNElements, V0, Vesc, VEavg, Estart,
             SmList.append(Sm*FF)
             S0List.append(S0*FF)
 
-            
-    return energies, Rate, SmList, S0List, FFarr, xList
+
+    if resFWHM == 0:
+        return energies, Rate, SmList, S0List, FFarr, xList
+
+    else:
+        
+        # apply gaussian smearing to account for resolution to all rates
+        # note: truncate sets range of array for building filter: [(-5*sigma + 0.5) to (5*sigma + 0.5+1)]
+        
+        newSmRate = nd.gaussian_filter1d(SmList, resFWHM, truncate=5.0)
+        newS0Rate = nd.gaussian_filter1d(S0List, resFWHM, truncate=5.0)
+        newRate = nd.gaussian_filter1d(Rate, resFWHM, truncate=5.0)
+        
+        return energies, newRate, newSmRate, newS0Rate, FFarr, xList
 

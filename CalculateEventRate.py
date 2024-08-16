@@ -11,7 +11,19 @@ import ApplyDetectorResolution
 from ApplyDetectorResolution import *
 from scipy import ndimage as nd
 
+def ReadFormFactorTextFile(FormFactorTxt, Er):
+    txt = open(FormFactorTxt, "r")
+    lines = txt.readlines()
+    FF = 0
+    for l in lines:
+        energy_data = l.split()
+        Energy = float(energy_data[0])
+        if Energy == Er:
+            FF = float(energy_data[1])
+    return FF
+            
 
+#def HaloModelEventRate(k0, rho, MChi, sig0, MNElements, V0, Vesc, VEavg, Estart, Estop, ENumEntries, resFWHM, FormFactorTxt):
 def HaloModelEventRate(k0, rho, MChi, sig0, MNElements, V0, Vesc, VEavg, Estart, Estop, ENumEntries, resFWHM):
 
     # returns in order:
@@ -32,6 +44,9 @@ def HaloModelEventRate(k0, rho, MChi, sig0, MNElements, V0, Vesc, VEavg, Estart,
         energies.append(eIt)
         incriment = (Estop-Estart)/ENumEntries
         eIt += incriment
+
+    SmTot = np.zeros(ENumEntries)
+    S0Tot = np.zeros(ENumEntries)
         
     for Mel in MNElements:
 
@@ -51,33 +66,33 @@ def HaloModelEventRate(k0, rho, MChi, sig0, MNElements, V0, Vesc, VEavg, Estart,
         times = []
         modulatingvel = []
 
-        SmList = []
-        S0List = []
-        for Er in energies:
+#        for Er in energies:
+        for Er in range(len(energies)):
             Er_tbin = 0.
-            ErJ = Er*keVtoJ
-            FF = SIFormFactor(Er, Mel[1])
+            ErJ = energies[Er]*keVtoJ
+            FF = SIFormFactor(energies[Er], Mel[1])
+#            FF = 
 
-            vm = MinVelocity(Er, E0, r, V0*kmtom)
+            vm = MinVelocity(energies[Er], E0, r, V0*kmtom)
             RMax,erf,xMax = MaxwellianVelocityDistribution(k0, k1, R0/sectoday, r, E0/keVtoJ, V0*kmtom, Ymax, Vesc*kmtom, vm)
             RMin,erf,xMin = MaxwellianVelocityDistribution(k0, k1, R0/sectoday, r, E0/keVtoJ, V0*kmtom, Ymin, Vesc*kmtom, vm)
             RMean,erf,xMean = MaxwellianVelocityDistribution(k0, k1, R0/sectoday, r, E0/keVtoJ, V0*kmtom, Ymean, Vesc*kmtom, vm)
 
-            Sm = (RMax-RMin)/2. * Mel[2] 
-            S0 = (RMax+RMin)/2. * Mel[2]
-            R = RMean * Mel[2]
-            
+            Sm = (RMax-RMin)/2. 
+            S0 = (RMax+RMin)/2. 
+            R = RMean
             erfFunc.append(erf)
-            FFarr.append(FF)
-            xList.append(xMax)
+#            FFarr.append(FF)
+#            xList.append(xMax)
 
-            Rate.append(R*FF)
-            SmList.append(Sm*FF)
-            S0List.append(S0*FF)
+            print("fraction is "+str(Mel[2]))
+            Rate.append(R*FF*Mel[2])
+            SmTot[Er] += (Sm*FF*Mel[2])
+            S0Tot[Er] += (S0*FF*Mel[2])
 
 
     if resFWHM == 0:
-        return energies, Rate, SmList, S0List, FFarr, xList
+        return energies, Rate, SmTot, S0Tot, FFarr, xList
 
     else:
         
@@ -87,6 +102,6 @@ def HaloModelEventRate(k0, rho, MChi, sig0, MNElements, V0, Vesc, VEavg, Estart,
         newSmRate = nd.gaussian_filter1d(SmList, resFWHM, truncate=5.0)
         newS0Rate = nd.gaussian_filter1d(S0List, resFWHM, truncate=5.0)
         newRate = nd.gaussian_filter1d(Rate, resFWHM, truncate=5.0)
-        
+
         return energies, newRate, newSmRate, newS0Rate, FFarr, xList
 

@@ -1,6 +1,8 @@
 import numpy as np
 import DMConstants
 from DMConstants import *
+import CalculateEventRate
+from CalculateEventRate import *
 
 
 def ApplyResolution(Er, ResSigma):
@@ -9,13 +11,13 @@ def ApplyResolution(Er, ResSigma):
     return smearedE
 
 # all lists, either calculated or derived from data estimates (like exposure/bkg)
-def SensitivityCalculation(bkg, delta2, exposure, k0, rho, MChi, MNElements, V0, VEsc, VEAvg, Estart, Estop, ENumEntries):
+def SensitivityCalculation(sig0, MChi, exposure, delta2, MNElements, bkg, Estart, Estop, ENumEntries, resFWHM):
 
     # rate, energies, sm, s0, and ff will be arrays of size ENumEntries, ranging from Estart to Estop.
     # these arrays should be summed with bin width Ebin for sensitivity
     
     mSig = 1 # always set initial guess sigma to 1 for scalability
-    rate, energies, Sm, s0, ff, xl = GetFullEventRate(k0, rho, M, mSig, MNElements, V0, VEsc, VEAvg, Estart, Estop, ENumEntries)
+    energies, Sm, s0, ff, xl = HaloModelEventRate(MChi, sig0, MNElements, Estart, Estop, ENumEntries, resFWHM)
     Ebin = (Estop - Estart) / ENumEntries
 
     sig1 = (2*delta2-4)/exposure/Ebin

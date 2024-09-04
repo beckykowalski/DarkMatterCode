@@ -21,10 +21,14 @@ def ReadFormFactorTextFile(FormFactorTxt, Er):
         if Energy == Er:
             FF = float(energy_data[1])
     return FF
-            
 
-#def HaloModelEventRate(k0, rho, MChi, sig0, MNElements, V0, Vesc, VEavg, Estart, Estop, ENumEntries, resFWHM, FormFactorTxt):
-def HaloModelEventRate(k0, rho, MChi, sig0, MNElements, V0, Vesc, VEavg, Estart, Estop, ENumEntries, resFWHM):
+
+# UNITS ARE IN COUNTS/KEV/KG/DAY
+# if MNElements is a list > 1, will provide the rate summed over all elements (assuming phase 
+# of DM is maximal value to have Sm at its largest)
+
+#def HaloModelEventRate(MChi, sig0, MNElements, Estart, Estop, ENumEntries, resFWHM, FormFactorTxt):
+def HaloModelEventRate(MChi, sig0, MNElements, Estart, Estop, ENumEntries, resFWHM):
 
     # returns in order:
     # 1: list for energy 
@@ -34,10 +38,10 @@ def HaloModelEventRate(k0, rho, MChi, sig0, MNElements, V0, Vesc, VEavg, Estart,
     # 5: list for squared form factor
     # 6: list for minimum velocity corresponding to Er and Mchi
     
-    E0 = 0.5 * (MChi*GeVtokg) * (V0*kmtom)*(V0*kmtom)
-    k1 = kConstants(k0, Vesc, V0)
+    E0 = 0.5 * (MChi*GeVtokg) * (v0*kmtom)*(v0*kmtom)
+    k1 = kConstants(k0, vEsc, v0)
     
-    Ymax, Ymin, Ymean, phase = GetVEarthAndSun(V0*kmtom)
+    Ymax, Ymin, Ymean, phase = GetVEarthAndSun(v0*kmtom)
     energies = []
     eIt = Estart
     for e in range(0, ENumEntries):
@@ -50,15 +54,13 @@ def HaloModelEventRate(k0, rho, MChi, sig0, MNElements, V0, Vesc, VEavg, Estart,
         
     for Mel in MNElements:
 
-        print("Element mass number "+str(Mel[1]))
-        
         mu = 1/((1./Mel[0])+(1./MChi))
         Rate = []
         FFarr = []
         erfFunc = []
         xList = []
         sigA = AtomicCross(Mel[1]*0.9315, MChi, Mel[1], sig0)
-        R0 = MinEventRate(Mel[1], rho, MChi, sigA, V0*kmtocm)
+        R0 = MinEventRate(Mel[1], rho, MChi, sigA, v0*kmtocm)
         r = KineticFactor(MChi, Mel[1]*0.9315)
         t_initial = 0.
         omega = timeomega
@@ -73,35 +75,32 @@ def HaloModelEventRate(k0, rho, MChi, sig0, MNElements, V0, Vesc, VEavg, Estart,
             FF = SIFormFactor(energies[Er], Mel[1])
 #            FF = 
 
-            vm = MinVelocity(energies[Er], E0, r, V0*kmtom)
-            RMax,erf,xMax = MaxwellianVelocityDistribution(k0, k1, R0/sectoday, r, E0/keVtoJ, V0*kmtom, Ymax, Vesc*kmtom, vm)
-            RMin,erf,xMin = MaxwellianVelocityDistribution(k0, k1, R0/sectoday, r, E0/keVtoJ, V0*kmtom, Ymin, Vesc*kmtom, vm)
-            RMean,erf,xMean = MaxwellianVelocityDistribution(k0, k1, R0/sectoday, r, E0/keVtoJ, V0*kmtom, Ymean, Vesc*kmtom, vm)
+            vm = MinVelocity(energies[Er], E0, r, v0*kmtom)
+            RMax,erf,xMax = MaxwellianVelocityDistribution(k0, k1, R0/sectoday, r, E0/keVtoJ, v0*kmtom, Ymax, vEsc*kmtom, vm)
+            RMin,erf,xMin = MaxwellianVelocityDistribution(k0, k1, R0/sectoday, r, E0/keVtoJ, v0*kmtom, Ymin, vEsc*kmtom, vm)
 
             Sm = (RMax-RMin)/2. 
             S0 = (RMax+RMin)/2. 
-            R = RMean
             erfFunc.append(erf)
+
+            print(str(Sm)+" for element "+str(Mel[1]))
 #            FFarr.append(FF)
 #            xList.append(xMax)
 
-            print("fraction is "+str(Mel[2]))
-            Rate.append(R*FF*Mel[2])
             SmTot[Er] += (Sm*FF*Mel[2])
             S0Tot[Er] += (S0*FF*Mel[2])
 
 
     if resFWHM == 0:
-        return energies, Rate, SmTot, S0Tot, FFarr, xList
+        return energies, SmTot, S0Tot, FFarr, xList
 
     else:
         
         # apply gaussian smearing to account for resolution to all rates
         # note: truncate sets range of array for building filter: [(-5*sigma + 0.5) to (5*sigma + 0.5+1)]
         
-        newSmRate = nd.gaussian_filter1d(SmList, resFWHM, truncate=5.0)
-        newS0Rate = nd.gaussian_filter1d(S0List, resFWHM, truncate=5.0)
-        newRate = nd.gaussian_filter1d(Rate, resFWHM, truncate=5.0)
+        newSmRate = nd.gaussian_filter1d(SmTot, resFWHM, truncate=5.0)
+        newS0Rate = nd.gaussian_filter1d(S0Tot, resFWHM, truncate=5.0)
 
-        return energies, newRate, newSmRate, newS0Rate, FFarr, xList
+        return energies, newSmRate, newS0Rate, FFarr, xList
 

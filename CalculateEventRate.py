@@ -29,7 +29,6 @@ def ReadFormFactorTextFile(FormFactorTxt, Er):
 
 #def HaloModelEventRate(MChi, sig0, MNElements, Estart, Estop, ENumEntries, resFWHM, FormFactorTxt):
 def HaloModelEventRate(MChi, sig0, MNElements, Estart, Estop, ENumEntries, resFWHM):
-
     # returns in order:
     # 1: list for energy 
     # 2: list for mean event rate
@@ -51,56 +50,46 @@ def HaloModelEventRate(MChi, sig0, MNElements, Estart, Estop, ENumEntries, resFW
 
     SmTot = np.zeros(ENumEntries)
     S0Tot = np.zeros(ENumEntries)
+    FFarr = np.zeros(ENumEntries)
         
     for Mel in MNElements:
 
         mu = 1/((1./Mel[0])+(1./MChi))
         Rate = []
-        FFarr = []
-        erfFunc = []
+
         xList = []
         sigA = AtomicCross(Mel[1]*0.9315, MChi, Mel[1], sig0)
         R0 = MinEventRate(Mel[1], rho, MChi, sigA, v0*kmtocm)
         r = KineticFactor(MChi, Mel[1]*0.9315)
-        t_initial = 0.
-        omega = timeomega
-        t = 0.
-        times = []
-        modulatingvel = []
 
 #        for Er in energies:
         for Er in range(len(energies)):
             Er_tbin = 0.
-            ErJ = energies[Er]*keVtoJ
+
             FF = SIFormFactor(energies[Er], Mel[1])
-#            FF = 
 
             vm = MinVelocity(energies[Er], E0, r, v0*kmtom)
             RMax,erf,xMax = MaxwellianVelocityDistribution(k0, k1, R0/sectoday, r, E0/keVtoJ, v0*kmtom, Ymax, vEsc*kmtom, vm)
             RMin,erf,xMin = MaxwellianVelocityDistribution(k0, k1, R0/sectoday, r, E0/keVtoJ, v0*kmtom, Ymin, vEsc*kmtom, vm)
-
+            
             Sm = (RMax-RMin)/2. 
             S0 = (RMax+RMin)/2. 
-            erfFunc.append(erf)
 
-            print(str(Sm)+" for element "+str(Mel[1]))
-#            FFarr.append(FF)
-#            xList.append(xMax)
-
+            # modulating/unmodulating componentn * form factor * nuclear mass fraction
             SmTot[Er] += (Sm*FF*Mel[2])
             S0Tot[Er] += (S0*FF*Mel[2])
+            
+            FFarr[Er] += FF
 
-
+            
     if resFWHM == 0:
+        
         return energies, SmTot, S0Tot, FFarr, xList
-
+    
     else:
-        
-        # apply gaussian smearing to account for resolution to all rates
-        # note: truncate sets range of array for building filter: [(-5*sigma + 0.5) to (5*sigma + 0.5+1)]
-        
+
         newSmRate = nd.gaussian_filter1d(SmTot, resFWHM, truncate=5.0)
         newS0Rate = nd.gaussian_filter1d(S0Tot, resFWHM, truncate=5.0)
-
+                
         return energies, newSmRate, newS0Rate, FFarr, xList
 

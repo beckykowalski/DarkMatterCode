@@ -35,3 +35,16 @@ To calculate AM sensitivity:
 
    Change name of txt (line 33) to save mass, cross section in a text file
 
+*NOTE*
+
+Difference in CalculateSensitvity.py and CalculateSensitivity_v1.py is:
+
+
+	   CalculateSenstivity_v1.py assumes that over one large energy bin you only have one integer of counts (say energy bin 10-28 keV
+	   to get the senstivity of one energy bin - background rate is 500 events divided by $Sm^{2}$ at the end)
+
+
+
+	   CalculateSensitivity.py now assumes a list where all entries are filled with the same value (say energy bin 10-28 keV to get
+	   sensitivity of one energy bin. List of Sm = 100 smaller bins for resolution calculation. Each element in background list
+	   is filled with 500 counts/kev/kg/day

@@ -26,11 +26,11 @@ def SensitivityCalculation(sig0, MChi, exposure, delta2, MNElements, bkg, Estart
 
     Ebin = (Estop - Estart) / ENumEntries
     Sm2 = 0
-
+    Sm2 = Sm2*Sm2
     for i in range(len(Sm)):
-        Sm2 += Sm[i]*Sm[i]
-#    Sm2 /= bkg
-    Sm2 /= sum(bkg)
+        Sm2 += Sm[i]*Sm[i]/bkg[i]
+    Sm2 /= bkg
+
     sig1 = np.sqrt((2*delta2-4)/Sm2/exposure/Ebin)
 
     # conversion from cm^2 to pb

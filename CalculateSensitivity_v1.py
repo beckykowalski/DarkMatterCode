@@ -25,10 +25,8 @@ def SensitivityCalculation(sig0, MChi, exposure, delta2, MNElements, bkg, Estart
         energies, Sm, S0, ff, xl = HaloModelEventRate(MChi, sig0, MNElements, Estart, Estop, numEntriesSens, resFWHM)
 
     Ebin = (Estop - Estart) / ENumEntries
-    Sm2 = 0
+    Sm2 = sum(Sm2)
     Sm2 = Sm2*Sm2
-    for i in range(len(Sm)):
-        Sm2 += Sm[i]*Sm[i]/bkg[i]
     Sm2 /= bkg
 
     sig1 = np.sqrt((2*delta2-4)/Sm2/exposure/Ebin)

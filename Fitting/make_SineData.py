@@ -3,7 +3,13 @@ import numpy as np
 import scipy as sp
 
 def sinFunc(DC, Sm, phi, T, x):
-    return DC + Sm*np.cos(2*np.pi*x/T + phi)
+    val = 0.
+    if T != 0:
+        val = DC + Sm*np.cos((2*np.pi/T) * (x + phi))
+    if T == 0:
+        val = np.random.poisson(DC, 1)
+        val = val[0]
+    return val
 
 def makeTextFile(DC, Sm, phi, T):
 
@@ -18,9 +24,10 @@ def makeTextFile(DC, Sm, phi, T):
     return textfile
 
 
-makeTextFile(50,10,0,365)
-makeTextFile(50,10,91.25,365)
-makeTextFile(50,5,0,365)
-makeTextFile(50,10,0,182.5)
-makeTextFile(30,10,0,365)
+#makeTextFile(50,10,0,365)
+#makeTextFile(50,10,91.25,365)
+#makeTextFile(50,5,0,365)
+#makeTextFile(50,10,0,182.5)
+#makeTextFile(30,10,0,365)
+makeTextFile(30,0,0,0)
 

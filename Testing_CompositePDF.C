@@ -112,23 +112,28 @@ void RooPlotter(int binWidth, const char* datafile, int it) {
   double TwoPi = 2*TMath::Pi();
   
   RooRealVar Sm("Sm", "Sm", .001, -1, 1);
-  RooRealVar phi("phi", "phi", .001, 0, TwoPi);
-  RooRealVar Nbkg("Nbkg", "Nbkg", 52000, 10000, 100000);
-  RooRealVar Nsig("Nsig", "Nsig", 5000, 1000, 10000);
+  RooRealVar a1("a1", "a1", .001, -1, 1);
+  RooRealVar a2("a2", "a2", .001, -1, 1);
+  RooRealVar phi("phi", "phi", .001, 0, 365);
+  RooRealVar frac("frac", "frac", .8, .5, 1.);
+  RooRealVar N("N", "N", 52000, 10000, 100000);
   double omega = 0.0172;
 
   RooUniform bkg("bkg", "bkg", x);
-  RooGenericPdf sig("sig", "sig", "Sm*(1 + cos(0.0172*(x - phi)))-a1", RooArgList(Sm, x, phi));
+  //  RooGenericPdf sig("sig", "sig", "Sm*(1 + cos(0.0172*(x + phi)))", RooArgList(Sm, x, phi));
+  RooGenericPdf sig("sig", "sig", "1 + a1*cos(0.0172*x) + a2*sin(0.0172*x)", RooArgList(a1, x, a2));
 
-  RooAddPdf sumPdf("sumPdf", "(bkg + sig)", RooArgList(bkg, sig), RooArgList(Nbkg, Nsig));
+  RooAddPdf sumPdf("sumPdf", "sumPdf", RooArgList(bkg, sig), RooArgList(frac));
+  RooExtendPdf extendedsig("extendedsig", "extendedsig", sumPdf, N);
   
-  RooFitResult *result = sumPdf.fitTo(*data, Strategy(2), Verbose(false), PrintLevel(0), Hesse(true), Save(true), Extended(true));
+  
+  RooFitResult *result = extendedsig.fitTo(*data, Strategy(2), Verbose(false), PrintLevel(0), Hesse(true), Save(true));
   //  RooAbsReal *nll = extendedPdf.createNLL(*data);
   RooPlot *frame = x.frame();
   data->plotOn(frame);
-  sumPdf.plotOn(frame), RooFit::LineColor(kBlue-7);
-  sumPdf.plotOn(frame, RooFit::Components(bkg), RooFit::LineStyle(kDashed), RooFit::LineColor(kViolet+1));
-  sumPdf.plotOn(frame, RooFit::Components(sig), RooFit::LineStyle(kDashed), RooFit::LineColor(kTeal+1));
+  extendedsig.plotOn(frame), RooFit::LineColor(kBlue-7);
+  extendedsig.plotOn(frame, RooFit::Components(bkg), RooFit::LineStyle(kDashed), RooFit::LineColor(kViolet+1));
+  extendedsig.plotOn(frame, RooFit::Components(sig), RooFit::LineStyle(kDashed), RooFit::LineColor(kTeal+1));
 
   
   TCanvas *can = new TCanvas("can", "", 800, 500);
